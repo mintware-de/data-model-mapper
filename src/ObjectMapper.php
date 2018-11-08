@@ -284,6 +284,10 @@ class ObjectMapper
                 throw new PropertyNotAccessibleException($propertyName);
             }
 
+            if ($field->name == null) {
+                $field->name = $propertyName;
+            }
+
             $val = null;
             if ($property->isPublic()) {
                 $val = $object->{$propertyName};
@@ -326,7 +330,7 @@ class ObjectMapper
                         $format = $field->format;
                     }
                     $val = $this->castType($val, $type, $propertyName, $format);
-                } else {
+                } elseif ($type != null) {
                     // Check if it's an array of X
                     if (substr($type, -2) == '[]' && is_array($val)) {
                         $tmpVal = [];
