@@ -10,7 +10,6 @@
 
 namespace MintWare\Tests\DMM\Model;
 
-
 use MintWare\DMM\DataField;
 
 class Movie

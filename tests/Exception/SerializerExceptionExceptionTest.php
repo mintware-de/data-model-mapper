@@ -21,6 +21,7 @@ class SerializerExceptionTest extends TestCase
         $this->assertInstanceOf(\Exception::class, new SerializerException(""));
     }
 
+    /** @throws ClassNotFoundException */
     public function testException()
     {
         $this->expectException(ClassNotFoundException::class);

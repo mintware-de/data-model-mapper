@@ -20,6 +20,7 @@ class ClassNotFoundExceptionTest extends TestCase
         $this->assertInstanceOf(\Exception::class, new ClassNotFoundException(""));
     }
 
+    /** @throws ClassNotFoundException */
     public function testException()
     {
         $this->expectException(ClassNotFoundException::class);

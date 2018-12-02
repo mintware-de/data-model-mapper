@@ -17,7 +17,7 @@ interface SerializerInterface
      * @return array The deserialized data (Can be an [key => value] array, an [key => DeserializedField] array or mixed)
      * @throws \Exception
      */
-    function deserialize($data);
+    public function deserialize($data);
 
-    function serialize($data);
+    public function serialize($data);
 }

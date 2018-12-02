@@ -183,7 +183,9 @@ class ObjectMapper
                 }
 
                 // Check if the current property is defined in the raw data
-                if (!isset($data[$field->name])) continue;
+                if (!isset($data[$field->name])) {
+                    continue;
+                }
 
                 $currentEntry = $data[$field->name];
 
@@ -255,7 +257,6 @@ class ObjectMapper
                     }
                 }
                 $this->setPropertyValue($object, $property, $val);
-
             }
         }
         return $object;

@@ -40,14 +40,14 @@ class DeserializedField
             foreach ($entry as $k => $item) {
                 if (is_array($item)) {
                     $res[$k] = $this->toPlain($item);
-                } else if ($item instanceof DeserializedField) {
+                } elseif ($item instanceof DeserializedField) {
                     $res[$k] = $item->toPlain();
                 } else {
                     $res[$k] = $item;
                 }
             }
             return $res;
-        } else if ($entry instanceof DeserializedField) {
+        } elseif ($entry instanceof DeserializedField) {
             return $entry->toPlain();
         } else {
             return $entry;

@@ -20,6 +20,7 @@ class TypeMismatchTest extends TestCase
         $this->assertInstanceOf(\Exception::class, new TypeMismatchException("", "", ""));
     }
 
+    /** @throws TypeMismatchException */
     public function testException()
     {
         $this->expectException(TypeMismatchException::class);

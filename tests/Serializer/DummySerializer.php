@@ -16,13 +16,13 @@ use MintWare\DMM\Serializer\SerializerInterface;
 class DummySerializer implements SerializerInterface
 {
     /** @inheritdoc */
-    function deserialize($data)
+    public function deserialize($data)
     {
         return unserialize($data);
     }
 
     /** @inheritdoc */
-    function serialize($data)
+    public function serialize($data)
     {
         $rawData = $this->removeMetaDataEntries($data);
         return serialize($rawData);
