@@ -23,28 +23,28 @@ Your user and address object looks like this
 <?php
 
 class User {
-    /** @JsonField() */
+    /** @DataField() */
     public $firstname;
 
-    /** @JsonField() */
+    /** @DataField() */
     public $surname;
 
-    /** @JsonField() */
+    /** @DataField() */
     public $address;
 }
 
 class Address {
 
-    /** @JsonField() */
+    /** @DataField() */
     public $street;
     
-    /** @JsonField() */
+    /** @DataField() */
     public $zip_code;
     
-    /** @JsonField() */
+    /** @DataField() */
     public $town;
     
-    /** @JsonField() */
+    /** @DataField() */
     public $country;
 }
 ```
@@ -57,7 +57,7 @@ In this case you need to modify the annotation of the `$address` property and ad
 class User {
     // ...
 
-    /** @JsonField(type="Address") */
+    /** @DataField(type="Address") */
     public $address;
 }
 ```

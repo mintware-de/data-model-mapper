@@ -14,7 +14,7 @@ E.q. a special time format needs to be converted to an DateTime object.
 For this case, you can create a class which implements the `TransformerInterface`:
 
 ```php
-class GermanDateTimeTransformer implements MintWare\JOM\TransformerInterface
+class GermanDateTimeTransformer implements MintWare\DMM\TransformerInterface
 {
     // Converts "27.04.2018, 22:05:47 Uhr" to a DateTime object
     public static function transform($data)
@@ -41,7 +41,7 @@ In the object you can refer the transformer by its FQCN:
 ```php
 class SomeObject
 {
-    /** @JsonField(name="german_date_time", type="string", postTransformer="\GermanDateTimeTransformer") */
+    /** @DataField(name="german_date_time", type="string", postTransformer="\GermanDateTimeTransformer") */
     public $dateTime;
 }
 ```

@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *
@@ -8,7 +8,9 @@
  * file that was distributed with this source code.
  */
 
-namespace MintWare\Tests\JOM;
+namespace MintWare\Tests\DMM\Model;
+
+use MintWare\DMM\DataField;
 
 /**
  * A simple dataholder for tests
@@ -17,6 +19,6 @@ namespace MintWare\Tests\JOM;
  */
 class FailPerson
 {
-    /** @MintWare\JOM\JsonField(name="foo", type="integer") */
+    /** @DataField(name="foo", type="integer") */
     protected $name;
 }

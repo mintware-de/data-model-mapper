@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *
@@ -8,56 +8,56 @@
  * file that was distributed with this source code.
  */
 
-namespace MintWare\Tests\JOM;
+namespace MintWare\Tests\DMM;
 
-use MintWare\JOM\Exception\ClassNotFoundException;
-use MintWare\JOM\Exception\PropertyNotAccessibleException;
-use MintWare\JOM\Exception\SerializerException;
-use MintWare\JOM\Exception\TypeMismatchException;
-use MintWare\JOM\ObjectMapper;
-use MintWare\Tests\JOM\Objects\Address;
-use MintWare\Tests\JOM\Objects\Autobot;
-use MintWare\Tests\JOM\Objects\Person;
-use MintWare\Tests\JOM\Objects\PersonWithEscapedFQCN;
-use MintWare\Tests\JOM\Objects\PersonWithMultipleAddresses;
-use MintWare\Tests\JOM\Objects\SimplePerson;
+use MintWare\DMM\Exception\ClassNotFoundException;
+use MintWare\DMM\Exception\PropertyNotAccessibleException;
+use MintWare\DMM\Exception\SerializerException;
+use MintWare\DMM\Exception\TypeMismatchException;
+use MintWare\DMM\ObjectMapper;
+use MintWare\Tests\DMM\Model\FailPerson;
+use MintWare\Tests\DMM\Model\Movie;
+use MintWare\Tests\DMM\Model\Person;
+use MintWare\Tests\DMM\Serializer\DummySerializer;
 use PHPUnit\Framework\TestCase;
 
 class ObjectMapperTest extends TestCase
 {
     public function testConstruct()
     {
-        $mapper = new ObjectMapper();
-        $this->assertTrue($mapper instanceof \MintWare\JOM\ObjectMapper);
+        $mapper = $this->getObjectMapper();
+        $this->assertTrue($mapper instanceof ObjectMapper);
     }
 
-    public function testMapJsonFailsInvalidJson()
+    public function testGetSetSerializer()
     {
-        $mapper = new ObjectMapper();
-        $this->expectException(SerializerException::class);
-        $this->expectExceptionMessage('Deserialize failed: The JSON is not valid.');
-        $mapper->mapJson('{"foo', null);
+        $mapper = $this->getObjectMapper();
+        $this->assertNull($mapper->getSerializer());
+
+        $serializer = new DummySerializer();
+        $mapper->setSerializer($serializer);
+        $this->assertSame($serializer, $mapper->getSerializer());
     }
 
     public function testMapDataToObjectFailsClassNotFound()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(ClassNotFoundException::class);
         $this->expectExceptionMessage('The class Foo\Bar was not found.');
-        $mapper->mapDataToObject(json_decode('{"foo": 1}'), 'Foo\\Bar');
+        $mapper->mapDataToObject([], 'Foo\\Bar');
     }
 
     public function testMapDataToObjectFailsPropertyNotAccessible()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(PropertyNotAccessibleException::class);
         $this->expectExceptionMessage('Neither the property "name" nor one of the methods "setName", "addName" (or getter) have public access.');
-        $mapper->mapDataToObject(json_decode('{"foo": 1}', true), FailPerson::class);
+        $mapper->mapDataToObject(['foo' => 1], FailPerson::class);
     }
 
     public function testMapDataToObjectFailsTypeMismatchInteger()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected int got boolean. Property name: age');
         $mapper->mapDataToObject(['age' => false], Person::class);
@@ -65,7 +65,7 @@ class ObjectMapperTest extends TestCase
 
     public function testMapDataToObjectFailsTypeMismatchFloat()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected float got integer. Property name: height');
         $mapper->mapDataToObject(['height' => 1], Person::class);
@@ -73,7 +73,7 @@ class ObjectMapperTest extends TestCase
 
     public function testMapDataToObjectFailsTypeMismatchBoolean()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected bool got string. Property name: is_cool');
         $mapper->mapDataToObject(['is_cool' => 'red'], Person::class);
@@ -81,7 +81,7 @@ class ObjectMapperTest extends TestCase
 
     public function testMapDataToObjectFailsTypeMismatchArray()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected array got object. Property name: nicknames');
         $mapper->mapDataToObject(['nicknames' => (object)[]], Person::class);
@@ -89,15 +89,15 @@ class ObjectMapperTest extends TestCase
 
     public function testMapDataToObjectFailsTypeMismatchString()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected string got array. Property name: firstname');
-        $mapper->mapDataToObject(['firstname' => []], Person::class);
+        $this->expectExceptionMessage('Wrong Type. Expected string got array. Property name: first_name');
+        $mapper->mapDataToObject(['first_name' => []], Person::class);
     }
 
     public function testMapDataToObjectFailsTypeMismatchObject()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected object got boolean. Property name: dictionary');
         $mapper->mapDataToObject(['dictionary' => false], Person::class);
@@ -105,350 +105,196 @@ class ObjectMapperTest extends TestCase
 
     public function testMapDataToObjectFailsTypeMismatchDatetime()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
         $this->expectException(TypeMismatchException::class);
         $this->expectExceptionMessage('Wrong Type. Expected datetime got string. Property name: created');
         $mapper->mapDataToObject(['created' => "Hello World"], Person::class);
     }
 
-    public function testMapDataToObject()
+    public function testPreTransformer()
     {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person.json'), true);
+        $mapper = $this->getObjectMapper();
+        /** @var Person $person */
+        $person = $mapper->mapDataToObject(['first_name' => "Hans"], Person::class);
+        $this->assertEquals("Hans", $person->firstName);
+        $this->assertEquals("snaH", $person->reversedFirstName);
+    }
+
+    public function testTransformer()
+    {
+        $mapper = $this->getObjectMapper();
+        /** @var Person $person */
+        $person = $mapper->mapDataToObject(['motto' => "Unxhan Zngngn"], Person::class);
+        $this->assertEquals("Hakuna Matata", $person->motto);
+    }
+
+    public function testDirectMappingWithoutTypeCheck()
+    {
+        $mapper = $this->getObjectMapper();
 
         /** @var Person $person */
-        $person = $mapper->mapDataToObject($data, Person::class);
-        $this->assertSame('Pete', $person->name);
-        $this->assertSame('Peterson', $person->surname);
-        $this->assertSame(28, $person->age);
-        $this->assertSame(1.72, $person->height);
-        $this->assertTrue($person->isCool);
-        $this->assertSame(['Pepe', 'Pete'], $person->nicknames);
-        $this->assertEquals((object)['hello' => 'Hi', 'bye' => 'Ciao!'], $person->dictionary);
-        $this->assertEquals(strtotime('2017-03-08T09:41:00'), $person->created->getTimestamp());
-        $this->assertEquals(strtotime('9.9.2017 00:00:00'), $person->updated->getTimestamp());
-        $this->assertEquals(strtotime('10.9.2017 00:00:00'), $person->deleted->getTimestamp());
-        $address = new Address();
-        $address->street = 'Mainstreet 22a';
-        $address->zipCode = 'A-12345';
-        $address->town = 'Best Town';
-        $address->country = 'Germany';
-        $this->assertEquals($address, $person->address);
+        $person = $mapper->mapDataToObject(['note' => "Hello"], Person::class);
+        $this->assertEquals("Hello", $person->note);
+
+        $person = $mapper->mapDataToObject(['note' => ["test"]], Person::class);
+        $this->assertEquals(["test"], $person->note);
     }
 
-    public function testMapDataToObjectMultipleTypes()
+    public function testMapWithMultipleTypes()
     {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person_string_address.json'), true);
+        $mapper = $this->getObjectMapper();
 
         /** @var Person $person */
-        $person = $mapper->mapDataToObject($data, Person::class);
-        $this->assertSame('Pete', $person->name);
-        $this->assertSame('Peterson', $person->surname);
-        $this->assertSame(28, $person->age);
-        $this->assertSame(1.72, $person->height);
-        $this->assertTrue($person->isCool);
-        $this->assertSame(['Pepe', 'Pete'], $person->nicknames);
-        $this->assertEquals((object)['hello' => 'Hi', 'bye' => 'Ciao!'], $person->dictionary);
-        $this->assertEquals(strtotime('2017-03-08T09:41:00'), $person->created->getTimestamp());
-        $this->assertEquals(strtotime('9.9.2017 00:00:00'), $person->updated->getTimestamp());
-        $this->assertEquals(strtotime('10.9.2017 00:00:00'), $person->deleted->getTimestamp());
-        $this->assertSame("Mainstreet 22a, A-12345, Best Town, Germany", $person->address);
-    }
-
-    public function testMapDataToObjectMultiple()
-    {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person_multiple_addresses.json'), true);
-
-        /** @var PersonWithMultipleAddresses $person */
-        $person = $mapper->mapDataToObject($data, PersonWithMultipleAddresses::class);
-        $address1 = new Address();
-        $address1->street = 'Mainstreet 22a';
-        $address1->zipCode = 'A-12345';
-        $address1->town = 'Best Town';
-        $address1->country = 'Germany';
-
-        $address2 = new Address();
-        $address2->street = 'Otherstreet #1';
-        $address2->zipCode = 'A-54321';
-        $address2->town = 'Great Town';
-        $address2->country = 'Austria';
-        $this->assertEquals([$address1, $address2], $person->addresses);
-    }
-
-    public function testMapDataToObjectWithEscapedFQCN()
-    {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person_multiple_addresses.json'), true);
-
-        /** @var PersonWithMultipleAddresses $person */
-        $person = $mapper->mapDataToObject($data, PersonWithEscapedFQCN::class);
-        $address1 = new Address();
-        $address1->street = 'Mainstreet 22a';
-        $address1->zipCode = 'A-12345';
-        $address1->town = 'Best Town';
-        $address1->country = 'Germany';
-
-        $address2 = new Address();
-        $address2->street = 'Otherstreet #1';
-        $address2->zipCode = 'A-54321';
-        $address2->town = 'Great Town';
-        $address2->country = 'Austria';
-        $this->assertEquals([$address1, $address2], $person->addresses);
-    }
-
-    public function testMapDataToObjectWithProtected()
-    {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person_protected.json'), true);
+        $person = $mapper->mapDataToObject(['aNumber' => "33"], Person::class);
+        $this->assertSame("33", $person->aNumber);
 
         /** @var Person $person */
-        $person = $mapper->mapDataToObject($data, Person::class);
-        $this->assertEquals('1234', $person->getProtectedProp());
-        $this->assertEquals('asdf', $person->getOtherProtectedProp());
+        $person = $mapper->mapDataToObject(['aNumber' => 44], Person::class);
+        $this->assertSame(44, $person->aNumber);
     }
 
-    public function testMapJson()
+    public function testMapNestedObject()
     {
-        $mapper = new ObjectMapper();
-        $json = file_get_contents(__DIR__ . '/res/person.json');
+        $mapper = $this->getObjectMapper();
 
         /** @var Person $person */
-        $person = $mapper->mapJson($json, Person::class);
-        $this->assertSame('Pete', $person->name);
-        $this->assertSame('Peterson', $person->surname);
-        $this->assertSame(28, $person->age);
-        $this->assertSame(1.72, $person->height);
-        $this->assertTrue($person->isCool);
-        $this->assertSame(['Pepe', 'Pete'], $person->nicknames);
-        $this->assertEquals((object)['hello' => 'Hi', 'bye' => 'Ciao!'], $person->dictionary);
-        $address = new Address();
-        $address->street = 'Mainstreet 22a';
-        $address->zipCode = 'A-12345';
-        $address->town = 'Best Town';
-        $address->country = 'Germany';
-        $this->assertEquals($address, $person->address);
-    }
-
-    public function testMapJsonArray()
-    {
-        $mapper = new ObjectMapper();
-        $json = file_get_contents(__DIR__ . '/res/person_multiple.json');
+        $person = $mapper->mapDataToObject(['favorite_movies' => [["title" => "Matrix", "year" => 1999]]], Person::class);
+        $this->assertEquals($person->favouriteMovies[0]->title, "Matrix");
+        $this->assertEquals($person->favouriteMovies[0]->year, 1999);
 
         /** @var Person $person */
-        $persons = $mapper->mapJson($json, Person::class . '[]');
-        $this->assertTrue(is_array($persons));
-        $this->assertCount(2, $persons);
-
-        $person1 = $persons[0];
-        $this->assertSame('Pete', $person1->name);
-        $this->assertSame('Peterson', $person1->surname);
-        $this->assertSame(28, $person1->age);
-        $this->assertSame(1.72, $person1->height);
-        $this->assertFalse($person1->isCool);
-
-        $person2 = $persons[1];
-        $this->assertSame('Anna', $person2->name);
-        $this->assertSame('Anderson', $person2->surname);
-        $this->assertSame(25, $person2->age);
-        $this->assertSame(1.63, $person2->height);
-        $this->assertTrue($person2->isCool);
+        $person = $mapper->mapDataToObject(['last_seen_movies' => ["title" => "Back to the Future", "year" => 1985]], Person::class);
+        $this->assertEquals($person->lastSeenMovie->title, "Back to the Future");
+        $this->assertEquals($person->lastSeenMovie->year, 1985);
     }
 
-    public function testObjectToJsonFailsPropertyNotAccessible()
+    public function testPostTransformer()
     {
-        $mapper = new ObjectMapper();
+        $mapper = $this->getObjectMapper();
+
+        /** @var Person $person */
+        $person = $mapper->mapDataToObject(['last_seen_movies' => ["title" => "Back to the Future", "year" => 1985]], Person::class);
+        $this->assertEquals($person->lastSeenMovie->reversedTitle, "erutuF eht ot kcaB");
+    }
+
+    public function testSetPrivateField()
+    {
+        $mapper = $this->getObjectMapper();
+
+        /** @var Person $person */
+        $person = $mapper->mapDataToObject(['last_seen_movies' => ["title" => "Back to the Future", "year" => 1985, 'director' => 'Robert Zemeckis', 'cast' => ['Michael J. Fox', 'Christopher Lloyd', 'Claudia Wells']]], Person::class);
+        $this->assertEquals($person->lastSeenMovie->getDirector(), "Robert Zemeckis");
+        $this->assertEquals($person->lastSeenMovie->getCast(), ['Michael J. Fox', 'Christopher Lloyd', 'Claudia Wells']);
+    }
+
+    public function testSerializeFails()
+    {
+        $mapper = $this->getObjectMapper();
+
+        $this->expectException(SerializerException::class);
+        $this->expectExceptionMessage("You've to specify a serializer with the setSerializer() method.");
+        $mapper->serialize(new \stdClass());
+    }
+
+    public function testSerializeFailsNotAccessibleProperty()
+    {
+        $mapper = $this->getObjectMapper(true);
+
         $this->expectException(PropertyNotAccessibleException::class);
-        $this->expectExceptionMessage('Neither the property "name" nor one of the methods "setName", "addName" (or getter) have public access.');
-        $mapper->objectToJson(new FailPerson());
+        $this->expectExceptionMessage("Neither the property \"name\" nor one of the methods \"setName\", \"addName\" (or getter) have public access.");
+        $mapper->serialize(new FailPerson());
     }
 
-
-    public function testObjectToJsonBasic()
+    public function testSerializeFailsNot()
     {
-        $mapper = new ObjectMapper();
-        $json = file_get_contents(__DIR__ . '/res/person.json');
-
-        $personOld = $mapper->mapJson($json, SimplePerson::class);
-        $reversedJson = $mapper->objectToJson($personOld);
-        $personNew = $mapper->mapJson($reversedJson, SimplePerson::class);
-
-        $this->assertEquals($personOld, $personNew);
+        $mapper = $this->getObjectMapper();
+        $res = $mapper->serialize(new \stdClass(), false);
+        $this->assertEmpty($res);
     }
 
-    public function testObjectToJson()
+    public function testSerialize()
     {
-        $mapper = new ObjectMapper();
-        $json = file_get_contents(__DIR__ . '/res/person.json');
+        $mapper = $this->getObjectMapper(true);
+        $person = $this->createPerson();
 
-        $personOld = $mapper->mapJson($json, Person::class);
-        $reversedJson = $mapper->objectToJson($personOld);
-        $personNew = $mapper->mapJson($reversedJson, Person::class);
+        $serialized = $mapper->serialize($person);
+        $this->assertContains('02.12.2018 00:00:00', $serialized);
+        $this->assertContains('2018-12-01 00:00:00', $serialized);
+        $person2 = $mapper->map($serialized, Person::class);
 
-        $this->assertEquals($personOld, $personNew);
+        $this->assertEquals($person->motto, $person2->motto);
+        $this->assertEquals($person->firstName, $person2->firstName);
+        $this->assertEquals($person->age, $person2->age);
+        $this->assertEquals($person->aNumber, $person2->aNumber);
+        $this->assertEquals($person->dictionary, $person2->dictionary);
+        $this->assertEquals($person->created, $person2->created);
+        $this->assertEquals($person->updated, $person2->updated);
+        $this->assertEquals($person->deleted, $person2->deleted);
+        $this->assertEquals($person->height, $person2->height);
+        $this->assertEquals($person->isCool, $person2->isCool);
+        $this->assertEquals($person->nicknames, $person2->nicknames);
+        $this->assertEquals($person->favouriteMovies, $person2->favouriteMovies);
+        $this->assertEquals($person->lastSeenMovie, $person2->lastSeenMovie);
+        $this->assertEquals($person->anotherNumber, $person2->anotherNumber);
+        $this->assertEquals($person->aLastNumber, $person2->aLastNumber);
+        $this->assertNull($person2->nonMappedField);
     }
 
-    public function testObjectToJsonAdvanced()
+    public function testMapFails()
     {
-        $mapper = new ObjectMapper();
-        $json = file_get_contents(__DIR__ . '/res/person_multiple_addresses.json');
+        $mapper = $this->getObjectMapper();
 
-        /** @var Person $person */
-        $person = $mapper->mapJson($json, PersonWithMultipleAddresses::class);
-
-        $reversedJson = $mapper->objectToJson($person);
-        // Normalize line endings
-        $json = str_replace(["\r\n", "\r", "\n"], "\n", $json);
-        $reversedJson = str_replace(["\r\n", "\r", "\n"], "\n", $reversedJson);
-
-        $this->assertEquals($json, $reversedJson);
+        $this->expectException(SerializerException::class);
+        $this->expectExceptionMessage("You've to specify a serializer with the setSerializer() method.");
+        $mapper->map('', \stdClass::class);
     }
 
-    public function testObjectToJsonFailsTypeMismatchInteger()
+    public function testMapArrayOfPrimitives()
     {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->age = false;
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected int got boolean. Property name: age');
-        $mapper->objectToJson($p);
+        $mapper = $this->getObjectMapper(true);
+        $res = $mapper->map('a:2:{i:0;O:8:"stdClass":0:{}i:1;O:8:"stdClass":0:{}}', '\\stdClass[]');
+        $this->assertEquals([new \stdClass(), new \stdClass()], $res);
+
     }
 
-    public function testObjectToJsonFailsTypeMismatchString()
+    /**
+     * @return ObjectMapper
+     */
+    protected function getObjectMapper($setSerializer = false)
     {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->name = new \DateTime();
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected string got object. Property name: name');
-        $mapper->objectToJson($p);
+        try {
+            $mapper = new ObjectMapper();
+            if ($setSerializer) {
+                $mapper->setSerializer(new DummySerializer());
+            }
+            return $mapper;
+        } catch (\Exception $e) {
+        }
+        return null;
     }
 
-    public function testObjectToJsonFailsTypeMismatchFloat()
+    protected function createPerson()
     {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->height = "hello :-)";
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected float got string. Property name: height');
-        $mapper->objectToJson($p);
-    }
-
-    public function testObjectToJsonFailsTypeMismatchBool()
-    {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->isCool = 1.322;
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected bool got double. Property name: isCool');
-        $mapper->objectToJson($p);
-    }
-
-    public function testObjectToJsonFailsTypeMismatchArray()
-    {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->nicknames = 1;
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected array got integer. Property name: nicknames');
-        $mapper->objectToJson($p);
-    }
-
-    public function testObjectToJsonFailsTypeMismatchObject()
-    {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->dictionary = "asd";
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected object got string. Property name: dictionary');
-        $mapper->objectToJson($p);
-    }
-
-    public function testObjectToJsonNotFailsTypeMismatchArrayObject()
-    {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->dictionary = ['nice' => "asd"];
-        $mapper->objectToJson($p);
-    }
-
-    public function testObjectToJsonFailsTypeMismatchDateTime()
-    {
-        $mapper = new ObjectMapper();
-        $p = new Person();
-        $p->created = true;
-        $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Wrong Type. Expected datetime got boolean. Property name: created');
-        $mapper->objectToJson($p);
-    }
-
-    public function testTransformers()
-    {
-        $mapper = new ObjectMapper();
-        $data = file_get_contents(__DIR__ . '/res/transformer.json');
-
-        /** @var Autobot $autobot */
-        $autobot = $mapper->mapJson($data, Autobot::class);
-        $this->assertInstanceOf(\DateTime::class, $autobot->createdAt);
-        $this->assertEquals(['yellow', 'black', 'bumblebee', 'json', 'transformer'], $autobot->tags);
-        $this->assertEquals(7, $autobot->series);
-
-        $reversedJson = <<<JSON
-{
-    "created_at": "1515533307000",
-    "tags": "yellow,black,bumblebee,json,transformer",
-    "series": "000007"
-}
-JSON;
-        $this->assertEquals($reversedJson, $mapper->objectToJson($autobot));
-    }
-
-    public function testMapDataToObjectWithAlternativeName()
-    {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person_field_variation.json'), true);
-
-        /** @var Person $person */
-        $person = $mapper->mapDataToObject($data, Person::class);
-        $this->assertSame('Pete', $person->name);
-        $this->assertSame('Peterson', $person->surname);
-        $this->assertSame(28, $person->age);
-        $this->assertSame(1.72, $person->height);
-        $this->assertTrue($person->isCool);
-        $this->assertSame(['Pepe', 'Pete'], $person->nicknames);
-        $this->assertEquals((object)['hello' => 'Hi', 'bye' => 'Ciao!'], $person->dictionary);
-        $this->assertEquals(strtotime('2017-03-08T09:41:00'), $person->created->getTimestamp());
-        $this->assertEquals(strtotime('9.9.2017 00:00:00'), $person->updated->getTimestamp());
-        $this->assertEquals(strtotime('10.9.2017 00:00:00'), $person->deleted->getTimestamp());
-        $address = new Address();
-        $address->street = 'Mainstreet 22a';
-        $address->zipCode = 'A-12345';
-        $address->town = 'Best Town';
-        $address->country = 'Germany';
-        $this->assertEquals($address, $person->address);
-    }
-
-    public function testMapDataToObjectWithoutNaming()
-    {
-        $mapper = new ObjectMapper();
-        $data = json_decode(file_get_contents(__DIR__ . '/res/person.json'), true);
-
-        /** @var SimplePerson $person */
-        $person = $mapper->mapDataToObject($data, SimplePerson::class);
-        $this->assertSame('Pete', $person->firstname);
-        $this->assertSame('Peterson', $person->surname);
-        $this->assertSame(28, $person->age);
-        $this->assertSame(1.72, $person->height);
-        $this->assertTrue($person->is_cool);
-        $this->assertSame(['Pepe', 'Pete'], $person->nicknames);
-        $this->assertEquals(['hello' => 'Hi', 'bye' => 'Ciao!'], $person->dictionary);
-        $address = [
-            'street' => 'Mainstreet 22a',
-            'town' => 'Best Town',
-            'country' => 'Germany',
-            'zip_code' => 'A-12345',
-        ];
-        $this->assertEquals($address, $person->address);
+        $person = new Person();
+        $person->motto = 'Hakuna Matata';
+        $person->favouriteMovies = [new Movie('Matrix', 1999), new Movie('Back to the Future', 1985)];
+        $person->favouriteMovies[0]->reversedTitle = 'xirtaM';
+        $person->favouriteMovies[1]->reversedTitle = 'erutuF eht ot kcaB';
+        $person->lastSeenMovie = new Movie("Back to the Future", 1985);
+        $person->lastSeenMovie->reversedTitle = 'erutuF eht ot kcaB';
+        $person->firstName = 'Hans';
+        $person->age = 68;
+        $person->aNumber = 44;
+        $person->nonMappedField = 'Pizza is tasty';
+        $person->dictionary = (object)['foo' => 'bar', 'baz' => ['foo' => 'bar']];
+        $person->created = new \DateTime('2018-12-02 00:00:00');
+        $person->updated = new \DateTime('2018-12-01 00:00:00');
+        $person->deleted = new \DateTime('2019-12-05 00:00:00');
+        $person->height = 1.78;
+        $person->isCool = true;
+        $person->anotherNumber = 40;
+        $person->aLastNumber = 80;
+        $person->nicknames = ['Devtronic'];
+        return $person;
     }
 }

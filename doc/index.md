@@ -1,4 +1,4 @@
-# JSON Object Mapper Documentation
+# Data Model Mapper Documentation
 
 ## Examples
 1. [Simple Mapping](./1_simple_mapping.md)
@@ -8,10 +8,12 @@
 5. [Convert an Mapped Object to JSON](./5_convert_an_object_to_json.md)
 6. [Multiple Annotations](./6_multiple_annotations.md)
 
-
 ## Basic usage
-JOM is totally easy to use. 
-Simply put the annotation `@MintWare\JOM\JsonField()` to your class properties.
+Since [JOM](https://github.com/mintware-de/json-object-mapper) was especially created for JSON handling,
+DMM is more flexible and uses replaceable serializer packages.
+
+In this documentation I use the [mintware-de/dmm-json](https://github.com/mintware-de/dmm-json) package for JSON handling.
+(Check the README for installation steps).
 
 ## Example
 Dataset:
@@ -32,20 +34,20 @@ Data Class:
 ```php
 <?php
 
-use MintWare\JOM\JsonField;
+use MintWare\DMM\DataField;
 
 class Person
 {
-    /** @JsonField(name="first_name", type="string") */
+    /** @DataField(name="first_name", type="string") */
     public $firstName;
     
-    /** @JsonField(name="surname", type="string") */
+    /** @DataField(name="surname", type="string") */
     public $lastname;
     
-    /** @JsonField() */
+    /** @DataField() */
     public $age;
     
-    /** @JsonField(type="Some\Other\DataClass\Address") */
+    /** @DataField(type="Some\Other\DataClass\Address") */
     public $address;
 }
 ```
@@ -54,8 +56,9 @@ Map the JSON:
 ```php
 <?php
 
-use  MintWare\JOM\ObjectMapper;
+use Mintware\DMM\ObjectMapper;
+use MintWare\DMM\Serializer\JsonSerializer;
 
-$mapper = new ObjectMapper();
-$person = $mapper->mapJson(file_get_contents('person.json'), Person::class);
+$mapper = new ObjectMapper(new JsonSerializer());
+$person = $mapper->map(file_get_contents('person.json'), Person::class);
 ```

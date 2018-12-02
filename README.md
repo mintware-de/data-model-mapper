@@ -1,17 +1,17 @@
-[![Travis](https://img.shields.io/travis/mintware-de/json-object-mapper.svg)](https://travis-ci.org/mintware-de/json-object-mapper)
-[![Packagist](https://img.shields.io/packagist/v/mintware-de/json-object-mapper.svg)](https://packagist.org/packages/mintware-de/json-object-mapper)
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/mintware-de/json-object-mapper/master/LICENSE)
-[![Packagist](https://img.shields.io/packagist/dt/mintware-de/json-object-mapper.svg)](https://packagist.org/packages/mintware-de/json-object-mapper)
+[![Travis](https://img.shields.io/travis/mintware-de/data-model-mapper.svg)](https://travis-ci.org/mintware-de/data-model-mapper)
+[![Packagist](https://img.shields.io/packagist/v/mintware-de/data-model-mapper.svg)](https://packagist.org/packages/mintware-de/data-model-mapper)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/mintware-de/data-model-mapper/master/LICENSE)
+[![Packagist](https://img.shields.io/packagist/dt/mintware-de/data-model-mapper.svg)](https://packagist.org/packages/mintware-de/data-model-mapper)
 
-# JOM - JSON Object Mapper
+# DMM - Data Model Mapper
 
-JOM is a powerful object mapper which maps JSON Data into PHP objects.
+DMM is a powerful and dynamic object mapper which maps data (JSON, XML etc.) into PHP objects.
 
 ## Installation
 You can install this library using composer
 
 ```bash
-$ composer require mintware-de/json-object-mapper
+$ composer require mintware-de/data-model-mapper
 ```
 
 ## Usage

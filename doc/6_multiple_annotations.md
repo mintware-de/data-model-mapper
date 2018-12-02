@@ -11,15 +11,15 @@ In some edge-cases a property name in the json can vary:
 ]
 ```
 
-In this case you can add multiple `@JsonField` annotations for a property.
+In this case you can add multiple `@DataField` annotations for a property.
 
 ```php
 class CrappySourceData {
     /**
-     * @JsonField(name="first name") 
-     * @JsonField(name="first*name") 
-     * @JsonField(name="first-name") 
-     * @JsonField(name="first_name") 
+     * @DataField(name="first name") 
+     * @DataField(name="first*name") 
+     * @DataField(name="first-name") 
+     * @DataField(name="first_name") 
      */
     public $firstName;
 }

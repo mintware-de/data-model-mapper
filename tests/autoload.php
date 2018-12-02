@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *

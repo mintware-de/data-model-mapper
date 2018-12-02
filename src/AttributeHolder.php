@@ -11,16 +11,21 @@
 namespace MintWare\DMM;
 
 /**
- * This class represents the DateTimeField Annotation
+ * This class represents the AttributeHolder Annotation
  *
  * @Annotation
  */
-class DateTimeField extends DataField
+class AttributeHolder
 {
+    /** @var mixed */
+    public $value;
+
     /**
-     * The target format
-     *
-     * @var string
+     * AttributeHolder constructor.
+     * @param mixed $value
      */
-    public $format = null;
+    public function __construct($value)
+    {
+        $this->value = $value;
+    }
 }

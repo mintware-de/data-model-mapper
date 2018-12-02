@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *
@@ -8,24 +8,26 @@
  * file that was distributed with this source code.
  */
 
-namespace MintWare\JOM;
+namespace MintWare\DMM;
 
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\AnnotationRegistry;
 use Doctrine\Common\Annotations\DocParser;
-use MintWare\JOM\Exception\ClassNotFoundException;
-use MintWare\JOM\Exception\PropertyNotAccessibleException;
-use MintWare\JOM\Exception\SerializerException;
-use MintWare\JOM\Exception\TypeMismatchException;
-use MintWare\JOM\Serializer\JsonSerializer;
-use MintWare\JOM\Serializer\SerializerInterface;
+
+use MintWare\DMM\Exception\ClassNotFoundException;
+use MintWare\DMM\Exception\PropertyNotAccessibleException;
+use MintWare\DMM\Exception\SerializerException;
+use MintWare\DMM\Exception\TypeMismatchException;
+
+use MintWare\DMM\Serializer\PropertyHolder;
+use MintWare\DMM\Serializer\SerializerInterface;
 
 /**
  * This class is the object mapper
  * To map a json string to a object you can easily call the
  * ObjectMapper::mapJson($json, $targetClass) method.
  *
- * @package MintWare\JOM
+ * @package MintWare\DMM
  */
 class ObjectMapper
 {
@@ -46,13 +48,13 @@ class ObjectMapper
     ];
 
     /**
-     * Instantiates a new json object mapper
+     * Instantiates a new ObjectMapper
+     *
+     * @param SerializerInterface|null $serializer The serializer
      * @throws \Exception If the Annotation reader could not be initialized
      */
-    public function __construct()
+    public function __construct($serializer = null)
     {
-        $this->serializer = new JsonSerializer();
-
         // Symfony does this also.. ;-)
         AnnotationRegistry::registerLoader('class_exists');
 
@@ -64,6 +66,8 @@ class ObjectMapper
         } catch (\Exception $e) {
             throw new \Exception("Failed to initialize the AnnotationReader", null, $e);
         }
+
+        $this->serializer = $serializer;
     }
 
     /**
@@ -77,13 +81,17 @@ class ObjectMapper
      * @throws SerializerException If the data couldn't be deserialized
      * @throws ClassNotFoundException If the target class does not exist
      * @throws PropertyNotAccessibleException If the class property has no public access an no set-Method
-     * @throws TypeMismatchException If The type in the JSON does not match the type in the class
+     * @throws TypeMismatchException If The type in the raw data does not match the type in the class
      * @throws \ReflectionException If the target class does not exist
      */
-    public function mapJson($rawData, $targetClass)
+    public function map($rawData, $targetClass)
     {
         // Deserialize the data
         try {
+            if ($this->serializer instanceof SerializerInterface === false) {
+                throw new SerializerException("You've to specify a serializer with the setSerializer() method.");
+            }
+
             $data = $this->serializer->deserialize($rawData);
         } catch (\Exception $e) {
             throw new SerializerException('Deserialize failed: ' . $e->getMessage(), 0, $e);
@@ -110,6 +118,8 @@ class ObjectMapper
     /**
      * Maps the  current entry to the property of the object
      *
+     * @internal
+     *
      * @param array $data The array of data
      * @param string $targetClass The current object class
      *
@@ -117,7 +127,7 @@ class ObjectMapper
      *
      * @throws ClassNotFoundException If the target class does not exist
      * @throws PropertyNotAccessibleException If the mapped property is not accessible
-     * @throws TypeMismatchException If the given type in json does not match with the expected type
+     * @throws TypeMismatchException If the given type in the raw data does not match with the expected type
      * @throws \ReflectionException If the class does not exist.
      */
     public function mapDataToObject($data, $targetClass)
@@ -141,16 +151,17 @@ class ObjectMapper
             // Extract the Annotations
             $fields = $this->reader->getPropertyAnnotations($property);
 
-            /** @var JsonField $field */
+            /** @var DataField $field */
             foreach ($fields as $field) {
-                if ($field instanceof JsonField == false) {
+                if ($field instanceof DataField == false) {
                     continue;
                 }
 
                 // Check if the property is public accessible or has a setter / adder
                 $propertyName = $property->getName();
                 $ucw = ucwords($propertyName);
-                if (!$property->isPublic() && !($class->hasMethod('set' . $ucw) || $class->hasMethod('add' . $ucw))) {
+                if (!$property->isPublic()
+                    && !($class->hasMethod('set' . $ucw) || $class->hasMethod('add' . $ucw))) {
                     throw new PropertyNotAccessibleException($propertyName);
                 }
 
@@ -158,8 +169,11 @@ class ObjectMapper
                     $field->name = $propertyName;
                 }
 
-                // Check if the current property is defined in the JSON
+                // Check if the current property is defined in the raw data
                 if (!isset($data[$field->name])) continue;
+
+                $currentEntry = $data[$field->name];
+
                 $val = null;
 
                 $types = explode('|', $field->type);
@@ -169,13 +183,13 @@ class ObjectMapper
                 if ($field->preTransformer !== null) {
                     /** @var TransformerInterface $preTransformer */
                     $preTransformer = $field->preTransformer;
-                    $data[$field->name] = $preTransformer::transform($data[$field->name]);
+                    $currentEntry = $preTransformer::transform($currentEntry);
                 }
 
                 if ($field->transformer !== null) {
                     /** @var TransformerInterface $transformer */
                     $transformer = $field->transformer;
-                    $val = $transformer::transform($data[$field->name]);
+                    $val = $transformer::transform($currentEntry);
                     $types = []; // Ignore type handler!
                 }
 
@@ -184,7 +198,7 @@ class ObjectMapper
 
                     // Check the type of the field and set the val
                     if ($type == '') {
-                        $val = $data[$field->name];
+                        $val = $currentEntry;
                     } elseif (in_array($type, $this->primitives)) {
                         $format = ($field instanceof DateTimeField && $field->format !== null
                             ? $field->format
@@ -192,7 +206,7 @@ class ObjectMapper
 
                         $converted = null;
                         try {
-                            $converted = $this->castType($data[$field->name], $type, $field->name, $format, true);
+                            $converted = $this->castType($currentEntry, $type, $field->name, $format, true);
                         } catch (TypeMismatchException $ex) {
                             if ($isLastElement) {
                                 throw  $ex;
@@ -204,16 +218,16 @@ class ObjectMapper
                         // If none of the primitives match it is an custom object
 
                         // Check if it's an array of X
-                        if (substr($type, -2) == '[]' && is_array($data[$field->name])) {
+                        if (substr($type, -2) == '[]' && is_array($currentEntry)) {
                             $t = substr($type, 0, -2);
                             $val = [];
-                            foreach ($data[$field->name] as $entry) {
+                            foreach ($currentEntry as $entry) {
                                 // Map the data recursive
                                 $val[] = (object)$this->mapDataToObject($entry, $t);
                             }
                         } elseif (substr($type, -2) != '[]') {
                             // Map the data recursive
-                            $val = (object)$this->mapDataToObject($data[$field->name], $type);
+                            $val = (object)$this->mapDataToObject($currentEntry, $type);
                         }
                     }
 
@@ -227,50 +241,41 @@ class ObjectMapper
                         break;
                     }
                 }
+                $this->setPropertyValue($object, $property, $val);
 
-                // Assign the JSON data to the object property
-                if ($val !== null) {
-                    // If the property is public accessible, set the value directly
-                    if ($property->isPublic()) {
-                        $object->{$propertyName} = $val;
-                    } else {
-                        // If not, use the setter / adder
-                        $ucw = ucwords($propertyName);
-                        if ($class->hasMethod($method = 'set' . $ucw)) {
-                            $object->$method($val);
-                        } elseif ($class->hasMethod($method = 'add' . $ucw)) {
-                            $object->$method($val);
-                        }
-                    }
-                }
             }
         }
         return $object;
     }
 
     /**
-     * Serializes an object to JSON
+     * Serializes an object to the raw format
      *
      * @param object $object The object
      * @param bool $returnAsString For internal usage
-     * @return string|array The JSON-String
+     * @return mixed|PropertyHolder[] The raw data or an [string => MetaDataValuePair] array
      *
      * @throws ClassNotFoundException If the target class does not exist
      * @throws PropertyNotAccessibleException If the mapped property is not accessible
-     * @throws TypeMismatchException If the given type in json does not match with the expected type
+     * @throws TypeMismatchException If the given type in the raw data does not match with the expected type
+     * @throws SerializerException If the data couldn't be serialized
      */
-    public function objectToJson($object, $returnAsString = true)
+    public function serialize($object, $returnAsString = true)
     {
-        $jsonData = [];
+        if ($returnAsString && $this->serializer instanceof SerializerInterface === false) {
+            throw new SerializerException("You've to specify a serializer with the setSerializer() method.");
+        }
+
+        $dataForSerialization = [];
         // Reflecting the target object to extract properties etc.
         $class = new \ReflectionObject($object);
 
         // Iterate over each class property to check if it's mapped
         foreach ($class->getProperties() as $property) {
-            // Extract the JsonField Annotation
+            // Extract the DataField Annotation
 
-            /** @var JsonField $field */
-            $field = $this->reader->getPropertyAnnotation($property, JsonField::class);
+            /** @var DataField $field */
+            $field = $this->reader->getPropertyAnnotation($property, DataField::class);
 
             // Is it not defined, the property is not mapped
             if (null === $field) {
@@ -286,6 +291,10 @@ class ObjectMapper
 
             if ($field->name == null) {
                 $field->name = $propertyName;
+            }
+
+            if (isset($dataForSerialization[$field->name]) && $dataForSerialization[$field->name] !== null) {
+                continue;
             }
 
             $val = null;
@@ -309,7 +318,7 @@ class ObjectMapper
             }
 
             if (is_null($val)) {
-                $jsonData[$field->name] = $val;
+                $dataForSerialization[$field->name] = $val;
                 continue;
             }
 
@@ -336,12 +345,12 @@ class ObjectMapper
                         $tmpVal = [];
                         foreach ($val as $entry) {
                             // Map the data recursive
-                            $tmpVal[] = (object)$this->objectToJson($entry, false);
+                            $tmpVal[] = (object)$this->serialize($entry, false);
                         }
                         $val = $tmpVal;
                     } elseif (substr($type, -2) != '[]') {
                         // Map the data recursive
-                        $val = (object)$this->objectToJson($val, false);
+                        $val = (object)$this->serialize($val, false);
                     }
                 }
             }
@@ -352,16 +361,16 @@ class ObjectMapper
                 $val = $preTransformer::reverseTransform($val);
             }
 
-            // Assign the JSON data to the object property
+            // Assign the raw data to the object property
             if ($val !== null) {
                 // If the property is public accessible, set the value directly
-                $jsonData[$field->name] = $val;
+                $dataForSerialization[$field->name] = new PropertyHolder($field, $property->name, $val);
             }
         }
 
-        $res = $jsonData;
+        $res = $dataForSerialization;
         if ($returnAsString) {
-            $res = json_encode($res, JSON_PRETTY_PRINT);
+            $res = $this->serializer->serialize($res);
         }
 
         return $res;
@@ -372,13 +381,14 @@ class ObjectMapper
      * @param string $type The target type
      * @param string $propertyName The name of the property (required for the exception)
      * @param string $datetimeFormat the format for DateTime deserialization
-     * @param bool $fromJson True, if the data comes from the json data
+     * @param bool $fromRaw True, if the data comes from the raw data
      * @return mixed
      * @throws TypeMismatchException If the data does not match to the type
+     * @throws \Exception If something went wrong during date casting
      *
      * @internal
      */
-    private function castType($dataToMap, $type, $propertyName, $datetimeFormat, $fromJson = false)
+    private function castType($dataToMap, $type, $propertyName, $datetimeFormat, $fromRaw = false)
     {
         $dtCheck = function ($x) {
             return ($x instanceof \DateTime);
@@ -400,7 +410,7 @@ class ObjectMapper
             return null;
         }
 
-        if ($fromJson && in_array($type, ['date', 'datetime'])) {
+        if ($fromRaw && in_array($type, ['date', 'datetime'])) {
             // Accepts the following formats:
             // 2017-09-09
             // 2017-09-09 13:20:59
@@ -410,8 +420,48 @@ class ObjectMapper
             // 2017-09-09T13:20:59-02:00
             $validPattern = '~^\d{4}-\d{2}-\d{2}((T|\s{1})\d{2}:\d{2}:\d{2}(\.\d{1,3}(Z|)|(\+|\-)\d{2}:\d{2}|)|)$~';
 
+            $datetimeFormatPattern = preg_quote($datetimeFormat);
+            $repl = [
+                'd' => '\d{2}',
+                'D' => '\w{3}',
+                'j' => '\d{1,2}',
+                'l' => '\w*',
+                'N' => '\d{1}',
+                'S' => '(st|nd|rd|th)',
+                'w' => '\d{1}',
+                'z' => '\d{1,3}',
+                'W' => '\d{1,2}',
+                'F' => '\w*',
+                'm' => '\d{1,2}',
+                'M' => '\w*',
+                'n' => '\d{1,2}',
+                't' => '\d{2}',
+                'L' => '(0|1)',
+                'o' => '\d{4}',
+                'Y' => '\d{4}',
+                'y' => '\d{2}',
+                'a' => '(am|pm)',
+                'A' => '(AM|PM)',
+                'B' => '\d{3}',
+                'g' => '\d{1,2}',
+                'G' => '\d{1,2}',
+                'h' => '\d{1,2}',
+                'H' => '\d{1,2}',
+                'i' => '\d{1,2}',
+                's' => '\d{1,2}',
+                'e' => '\w*',
+                'I' => '(0|1)',
+                'O' => '(\+|\-)\d{4}',
+                'P' => '(\+|\-)\d{2}:\d{2}',
+                'T' => '\w*',
+                'Z' => '(\-|)\d{1,5}',
+            ];
+            $datetimeFormatPattern = str_replace(array_keys($repl), array_values($repl), $datetimeFormatPattern);
+
             $tmpVal = $dataToMap;
             if (preg_match($validPattern, $tmpVal)) {
+                $dataToMap = new \DateTime($tmpVal);
+            } elseif ($datetimeFormatPattern != '' && preg_match('~' . $datetimeFormatPattern . '~', $tmpVal)) {
                 $dataToMap = new \DateTime($tmpVal);
             } else {
                 $casted = intval($tmpVal);
@@ -446,7 +496,7 @@ class ObjectMapper
             }
             $dataToMap = (object)$dataToMap;
         } elseif (in_array($type, ['date', 'datetime'])) {
-            if ($fromJson) {
+            if ($fromRaw) {
                 if (strtolower($type) == 'date') {
                     $dataToMap->setTime(0, 0, 0);
                 }
@@ -461,5 +511,48 @@ class ObjectMapper
             }
         }
         return $dataToMap;
+    }
+
+    /**
+     * @return SerializerInterface
+     */
+    public function getSerializer()
+    {
+        return $this->serializer;
+    }
+
+    /**
+     * @param SerializerInterface $serializer
+     * @return ObjectMapper
+     */
+    public function setSerializer(SerializerInterface $serializer)
+    {
+        $this->serializer = $serializer;
+        return $this;
+    }
+
+    /**
+     * Sets a property of an object
+     *
+     * @param object $object The object
+     * @param \ReflectionProperty $property The Property
+     * @param mixed $value The new value
+     */
+    protected function setPropertyValue($object, \ReflectionProperty $property, $value)
+    {
+        if ($value !== null) {
+            // If the property is public accessible, set the value directly
+            if ($property->isPublic()) {
+                $object->{$property->name} = $value;
+            } else {
+                // If not, use the setter / adder
+                $ucw = ucwords($property->name);
+                if ($property->getDeclaringClass()->hasMethod($method = 'set' . $ucw)) {
+                    $object->$method($value);
+                } elseif ($property->getDeclaringClass()->hasMethod($method = 'add' . $ucw)) {
+                    $object->$method($value);
+                }
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *
@@ -8,12 +8,12 @@
  * file that was distributed with this source code.
  */
 
-namespace MintWare\JOM\Exception;
+namespace MintWare\DMM\Exception;
 
 /**
  * If a class does not exist, you can throw this exception
  *
- * @package MintWare\JOM\Exception
+ * @package MintWare\DMM\Exception
  */
 class TypeMismatchException extends \Exception
 {

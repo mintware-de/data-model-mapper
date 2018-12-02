@@ -18,13 +18,13 @@ In this case you can use the `name` argument in the annotation to refer the name
 <?php
 
 class User {
-    /** @JsonField(name="first name") */
+    /** @DataField(name="first name") */
     public $firstname;
 
-    /** @JsonField(name="lastname") */
+    /** @DataField(name="lastname") */
     public $surname;
 
-    /** @JsonField(name="foo*bar") */
+    /** @DataField(name="foo*bar") */
     public $aFunnyMessage;
 }
 ```

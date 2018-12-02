@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of the JSON Object Mapper package.
+ * This file is part of the Data Model Mapper package.
  *
  * Copyright 2017 - 2018 by Julian Finkler <julian@mintware.de>
  *
@@ -8,14 +8,16 @@
  * file that was distributed with this source code.
  */
 
-namespace MintWare\JOM\Serializer;
+namespace MintWare\DMM\Serializer;
 
 interface SerializerInterface
 {
     /**
      * @param $data
-     * @return array the deserialized data
+     * @return array The deserialized data (Can be an [key => value] array, an [key => DeserializedField] array or mixed)
      * @throws \Exception
      */
     function deserialize($data);
+
+    function serialize($data);
 }
