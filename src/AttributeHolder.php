@@ -24,7 +24,7 @@ class AttributeHolder
      * AttributeHolder constructor.
      * @param mixed $value
      */
-    public function __construct($value)
+    public function __construct($value = null)
     {
         $this->value = $value;
     }

@@ -21,6 +21,12 @@ class PropertyHolder
     public $annotation = null;
 
     /**
+     * Contains the Attributes
+     * @var mixed
+     */
+    public $attributes = null;
+
+    /**
      * Contains the property name of the PHP model
      * @var string
      */
@@ -32,10 +38,18 @@ class PropertyHolder
      */
     public $value = null;
 
-    public function __construct(DataField $metaData, $propertyName, $value)
+    /**
+     * PropertyHolder constructor.
+     * @param DataField $metaData
+     * @param $propertyName
+     * @param $value
+     * @param null $attributes
+     */
+    public function __construct($metaData, $propertyName, $value, $attributes = null)
     {
         $this->annotation = $metaData;
         $this->propertyName = $propertyName;
         $this->value = $value;
+        $this->attributes = $attributes;
     }
 }

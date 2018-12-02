@@ -19,6 +19,7 @@ use MintWare\DMM\Exception\PropertyNotAccessibleException;
 use MintWare\DMM\Exception\SerializerException;
 use MintWare\DMM\Exception\TypeMismatchException;
 
+use MintWare\DMM\Serializer\DeserializedField;
 use MintWare\DMM\Serializer\PropertyHolder;
 use MintWare\DMM\Serializer\SerializerInterface;
 
@@ -120,7 +121,7 @@ class ObjectMapper
      *
      * @internal
      *
-     * @param array $data The array of data
+     * @param DeserializedField|array $data The array of data
      * @param string $targetClass The current object class
      *
      * @return mixed The mapped object
@@ -129,6 +130,7 @@ class ObjectMapper
      * @throws PropertyNotAccessibleException If the mapped property is not accessible
      * @throws TypeMismatchException If the given type in the raw data does not match with the expected type
      * @throws \ReflectionException If the class does not exist.
+     * @throws \Exception
      */
     public function mapDataToObject($data, $targetClass)
     {
@@ -145,6 +147,12 @@ class ObjectMapper
         // Reflecting the target object to extract properties etc.
         $class = new \ReflectionClass($targetClass);
 
+        $attributes = null;
+        if ($data instanceof DeserializedField) {
+            $attributes = $data->attributes;
+            $data = $data->value;
+        }
+
         // Iterate over each class property to check if it's mapped
         foreach ($class->getProperties() as $property) {
 
@@ -153,6 +161,11 @@ class ObjectMapper
 
             /** @var DataField $field */
             foreach ($fields as $field) {
+                if ($field instanceof AttributeHolder) {
+                    $this->setPropertyValue($object, $property, $attributes);
+                    continue;
+                }
+
                 if ($field instanceof DataField == false) {
                     continue;
                 }
@@ -270,9 +283,17 @@ class ObjectMapper
         // Reflecting the target object to extract properties etc.
         $class = new \ReflectionObject($object);
 
+        $attributes = null;
+
         // Iterate over each class property to check if it's mapped
         foreach ($class->getProperties() as $property) {
             // Extract the DataField Annotation
+
+            /** @var AttributeHolder $attributes */
+            $tmpAttributes = $this->reader->getPropertyAnnotation($property, AttributeHolder::class);
+            if ($tmpAttributes != null && !empty($tmpAttributes)) {
+                $attributes = $this->getPropertyValue($object, $property);
+            }
 
             /** @var DataField $field */
             $field = $this->reader->getPropertyAnnotation($property, DataField::class);
@@ -297,12 +318,7 @@ class ObjectMapper
                 continue;
             }
 
-            $val = null;
-            if ($property->isPublic()) {
-                $val = $object->{$propertyName};
-            } else {
-                $val = $object->{'get' . $ucw}();
-            }
+            $val = $this->getPropertyValue($object, $property);
 
             // Reverse order on encoding (postTransformer -> transformer -> preTransformer)
             if ($field->postTransformer !== null) {
@@ -322,6 +338,7 @@ class ObjectMapper
                 continue;
             }
 
+            $currentAttributes = null;
             if ($field->transformer === null) {
                 $types = explode('|', $field->type);
                 $type = null;
@@ -344,13 +361,16 @@ class ObjectMapper
                     if (substr($type, -2) == '[]' && is_array($val)) {
                         $tmpVal = [];
                         foreach ($val as $entry) {
+                            $serialized = $this->serialize($entry, false);
                             // Map the data recursive
-                            $tmpVal[] = (object)$this->serialize($entry, false);
+                            $tmpVal[] = new PropertyHolder(null, null, (object)$serialized[0], $serialized[1]);
                         }
                         $val = $tmpVal;
                     } elseif (substr($type, -2) != '[]') {
+                        $serialized = $this->serialize($val, false);
+                        $currentAttributes = $serialized[1];
                         // Map the data recursive
-                        $val = (object)$this->serialize($val, false);
+                        $val = (object)$serialized[0];
                     }
                 }
             }
@@ -364,13 +384,15 @@ class ObjectMapper
             // Assign the raw data to the object property
             if ($val !== null) {
                 // If the property is public accessible, set the value directly
-                $dataForSerialization[$field->name] = new PropertyHolder($field, $property->name, $val);
+                $dataForSerialization[$field->name] = new PropertyHolder($field, $property->name, $val, $currentAttributes);
             }
         }
 
         $res = $dataForSerialization;
         if ($returnAsString) {
             $res = $this->serializer->serialize($res);
+        } else {
+            $res = [$dataForSerialization, $attributes];
         }
 
         return $res;
@@ -554,5 +576,20 @@ class ObjectMapper
                 }
             }
         }
+    }
+
+    /**
+     * @param $object
+     * @param \ReflectionProperty $property
+     * @return mixed
+     */
+    protected function getPropertyValue($object, \ReflectionProperty $property)
+    {
+        if ($property->isPublic()) {
+            $val = $object->{$property->getName()};
+        } else {
+            $val = $object->{'get' . ucwords($property->getName())}();
+        }
+        return $val;
     }
 }

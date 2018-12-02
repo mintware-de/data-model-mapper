@@ -15,9 +15,12 @@ use MintWare\DMM\Exception\PropertyNotAccessibleException;
 use MintWare\DMM\Exception\SerializerException;
 use MintWare\DMM\Exception\TypeMismatchException;
 use MintWare\DMM\ObjectMapper;
+use MintWare\DMM\Serializer\DeserializedField;
+use MintWare\DMM\Serializer\PropertyHolder;
 use MintWare\Tests\DMM\Model\FailPerson;
 use MintWare\Tests\DMM\Model\Movie;
 use MintWare\Tests\DMM\Model\Person;
+use MintWare\Tests\DMM\Model\PersonWithAttributes;
 use MintWare\Tests\DMM\Serializer\DummySerializer;
 use PHPUnit\Framework\TestCase;
 
@@ -209,7 +212,7 @@ class ObjectMapperTest extends TestCase
     {
         $mapper = $this->getObjectMapper();
         $res = $mapper->serialize(new \stdClass(), false);
-        $this->assertEmpty($res);
+        $this->assertEmpty($res[0]);
     }
 
     public function testSerialize()
@@ -254,7 +257,22 @@ class ObjectMapperTest extends TestCase
         $mapper = $this->getObjectMapper(true);
         $res = $mapper->map('a:2:{i:0;O:8:"stdClass":0:{}i:1;O:8:"stdClass":0:{}}', '\\stdClass[]');
         $this->assertEquals([new \stdClass(), new \stdClass()], $res);
+    }
 
+    public function testMapAndSerializeWithAttributes()
+    {
+        $data = new DeserializedField([
+            'username' => 'Devtronic',
+        ], ['role' => 'developer']);
+
+        $mapper = $this->getObjectMapper();
+        $mapped = $mapper->mapDataToObject($data, PersonWithAttributes::class);
+
+        $this->assertEquals(['role' => 'developer'], $mapped->attributes);
+
+        $serialized = $mapper->serialize($mapped, false);
+        $this->assertInstanceOf(PropertyHolder::class, $serialized[0]['username']);
+        $this->assertEquals(['role' => 'developer'], $serialized[1]);
     }
 
     /**
