@@ -61,4 +61,12 @@ class DataField
      * @var string
      */
     public $postTransformer = null;
+
+    /**
+     * If the type is defined as an array and the value comes as an object, the object will be wrapped into an array
+     * e.g.: foo[] is expected and foo is given, the mapper will set the property with [foo]
+     *
+     * @var bool
+     */
+    public $forceArray = true;
 }

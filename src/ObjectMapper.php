@@ -213,7 +213,11 @@ class ObjectMapper
 
                     // Check the type of the field and set the val
                     if ($type == '') {
-                        $val = $currentEntry;
+                        if ($currentEntry instanceof DeserializedField) {
+                            $val = $currentEntry->toPlain();
+                        } else {
+                            $val = $currentEntry;
+                        }
                     } elseif (in_array($type, $this->primitives)) {
                         $format = ($field instanceof DateTimeField && $field->format !== null
                             ? $field->format
@@ -233,10 +237,19 @@ class ObjectMapper
                         // If none of the primitives match it is an custom object
 
                         // Check if it's an array of X
-                        if (substr($type, -2) == '[]' && is_array($currentEntry)) {
+                        if (substr($type, -2) == '[]' && (is_array($currentEntry) || ($currentEntry instanceof DeserializedField && is_array($currentEntry->toPlain())))) {
                             $t = substr($type, 0, -2);
                             $val = [];
-                            foreach ($currentEntry as $entry) {
+
+                            $entries = $currentEntry;
+                            if ($entries instanceof DeserializedField) {
+                                $entries = $entries->value;
+                                if ($field->forceArray && array_keys($entries) != range(0, count($entries) - 1)) {
+                                    $entries = [$entries];
+                                }
+                            }
+
+                            foreach ($entries as $entry) {
                                 // Map the data recursive
                                 $val[] = (object)$this->mapDataToObject($entry, $t);
                             }
@@ -431,6 +444,10 @@ class ObjectMapper
 
         if (!isset($checkMethod[$type])) {
             return null;
+        }
+
+        if ($dataToMap instanceof DeserializedField) {
+            $dataToMap = $dataToMap->toPlain();
         }
 
         if ($fromRaw && in_array($type, ['date', 'datetime'])) {
