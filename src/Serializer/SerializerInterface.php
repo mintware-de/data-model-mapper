@@ -13,11 +13,19 @@ namespace MintWare\DMM\Serializer;
 interface SerializerInterface
 {
     /**
-     * @param $data
+     * Deserialize logic (raw-data -> object)
+     *
+     * @param string|mixed $data The raw data, in the most cases a string
      * @return array The deserialized data (Can be an [key => value] array, an [key => DeserializedField] array or mixed)
      * @throws \Exception
      */
     public function deserialize($data);
 
-    public function serialize($data);
+    /**
+     * Serialize logic (object -> raw-data)
+     *
+     * @param PropertyHolder $data The
+     * @return mixed The serialized data (in the most cases a string, e.g. json, xml etc)
+     */
+    public function serialize(PropertyHolder $data);
 }

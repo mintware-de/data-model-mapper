@@ -404,7 +404,7 @@ class ObjectMapper
 
         $res = $dataForSerialization;
         if ($returnAsString) {
-            $res = $this->serializer->serialize($res);
+            $res = $this->serializer->serialize(new PropertyHolder(null, null, $res, $attributes));
         } else {
             $res = [$dataForSerialization, $attributes];
         }

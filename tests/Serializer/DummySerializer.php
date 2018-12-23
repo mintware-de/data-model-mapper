@@ -22,7 +22,7 @@ class DummySerializer implements SerializerInterface
     }
 
     /** @inheritdoc */
-    public function serialize($data)
+    public function serialize(PropertyHolder $data)
     {
         $rawData = $this->removeMetaDataEntries($data);
         return serialize($rawData);
@@ -30,6 +30,8 @@ class DummySerializer implements SerializerInterface
 
     public function removeMetaDataEntries($data)
     {
+        if ($data instanceof PropertyHolder) $data = $data->value;
+
         $res = [];
         foreach ($data as $k => $v) {
             if ($v instanceof PropertyHolder) {
