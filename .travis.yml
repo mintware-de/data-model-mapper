@@ -1,18 +1,31 @@
 dist: trusty
 
 language: php
-php:
-  - '5.6'
-  - '7.0'
-  - '7.1'
-  - '7.2'
-  - hhvm
+
+matrix:
+  include:
+  - php: '5.6'
+    env: COMPOSER_PREFER_LOWEST=true
+  - php: '5.6'
+    env: COMPOSER_PREFER_LOWEST=false
+  - php: '7.0'
+    env: COMPOSER_PREFER_LOWEST=true
+  - php: '7.0'
+    env: COMPOSER_PREFER_LOWEST=false
+  - php: '7.1'
+    env: COMPOSER_PREFER_LOWEST=true
+  - php: '7.1'
+    env: COMPOSER_PREFER_LOWEST=false
+  - php: '7.2'
+    env: COMPOSER_PREFER_LOWEST=false
+  - php: '7.3'
+    env: COMPOSER_PREFER_LOWEST=false
 
 branches:
-    only: master
+  only: 'master'
 
 before_script:
-    - composer self-update
-    - composer update --prefer-source `if [[ $COMPOSER_PREFER_LOWEST = true ]]; then echo "--prefer-lowest --prefer-stable"; fi`
+  - composer self-update
+  - composer update --prefer-source `if [[ $COMPOSER_PREFER_LOWEST = true ]]; then echo "--prefer-lowest --prefer-stable"; fi`
 
 script: vendor/bin/phpunit --configuration phpunit.xml
